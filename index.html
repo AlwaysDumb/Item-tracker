@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מעקב חפצים</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        h1 { color: #667eea; font-size: 1.75rem; margin-bottom: 8px; }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .status.saved { background: #10b981; color: white; }
+        .status.loading { background: #f59e0b; color: white; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        textarea {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            min-height: 44px;
+            resize: vertical;
+        }
+        input[type="number"] {
+            width: 70px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            padding: 12px 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        button:hover { background: #5568d3; }
+        button:active { transform: scale(0.98); }
+        button.delete { background: #ef4444; padding: 10px 14px; font-size: 0.9rem; }
+        button.delete:hover { background: #dc2626; }
+        button.plus, button.minus {
+            background: #10b981;
+            padding: 6px 10px;
+            font-size: 1.1rem;
+            min-width: 32px;
+        }
+        button.minus { background: #f59e0b; }
+        button.plus:hover { background: #059669; }
+        button.minus:hover { background: #d97706; }
+        button.copy-to {
+            background: #8b5cf6;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+        button.copy-to:hover { background: #7c3aed; }
+        .item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .item-name { 
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .quantity-badge {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .quantity-needed { background: #f59e0b; }
+        .item-actions { 
+            display: flex; 
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+        .empty-state { 
+            text-align: center; 
+            color: #999; 
+            padding: 30px;
+            font-size: 1rem;
+        }
+        .to-bring { background: #fef3c7; }
+        .to-bring .item { 
+            background: #fef9e7; 
+            border-right: 4px solid #f59e0b; 
+        }
+        .stats { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 15px; 
+            flex-wrap: wrap; 
+        }
+        .stat {
+            background: #f0f4ff;
+            padding: 14px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+        .stat-number { 
+            font-size: 2rem; 
+            font-weight: bold; 
+            color: #667eea; 
+        }
+        .stat-label { 
+            color: #666; 
+            font-size: 0.9rem; 
+            margin-top: 4px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            h1 { font-size: 1.4rem; }
+            input[type="number"] { width: 60px; }
+            button { padding: 10px 14px; font-size: 0.9rem; }
+            button.delete { padding: 8px 12px; font-size: 0.85rem; }
+            .item-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 מעקב חפצים</h1>
+            <div class="status saved" id="status">✓ הכל שמור</div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h2>📦 מה יש לי בישיבה</h2>
+                <div class="input-group">
+                    <textarea id="ci" placeholder="שם הפריט..." rows="1"></textarea>
+                    <input type="number" id="cq" min="1" value="1">
+                    <button onclick="app.addCurrent()">הוסף</button>
+                </div>
+                <div id="cl"></div>
+            </div>
+
+            <div class="card">
+                <h2>⭐ מה צריך להיות</h2>
+                <div class="input-group">
+                    <textarea id="ri" placeholder="שם הפריט..." rows="1"></textarea>
+                    <input type="number" id="rq" min="1" value="1">
+                    <button onclick="app.addRequired()">הוסף</button>
+                </div>
+                <div id="rl"></div>
+            </div>
+        </div>
+
+        <div class="card to-bring">
+            <h2>✈️ מה צריך להביא</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="tc">0</div>
+                    <div class="stat-label">פריטים להביא</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="cc">0</div>
+                    <div class="stat-label">יש לי</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="rc">0</div>
+                    <div class="stat-label">צריך</div>
+                </div>
+            </div>
+            <div id="tl"></div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            data: { current: {}, required: {} },
+            
+            init() {
+                this.load();
+                this.render();
+                
+                // Auto-save every 3 seconds if there are changes
+                setInterval(() => this.save(), 3000);
+            },
+            
+            save() {
+                try {
+                    const key = 'itemTracker_data_v1';
+                    const saved = localStorage.getItem(key);
+                    const current = JSON.stringify(this.data);
+                    
+                    // Only save if data changed
+                    if (saved !== current) {
+                        localStorage.setItem(key, current);
+                        this.showStatus('saved');
+                        console.log('💾 Saved:', this.data);
+                    }
+                } catch(e) {
+                    console.error('Save error:', e);
+                    this.showStatus('error');
+                }
+            },
+            
+            load() {
+                try {
+                    const key = 'itemTracker_data_v1';
+                    const saved = localStorage.getItem(key);
+                    
+                    if (saved) {
+                        this.data = JSON.parse(saved);
+                        console.log('📂 Loaded:', this.data);
+                    }
+                } catch(e) {
+                    console.error('Load error:', e);
+                }
+            },
+            
+            showStatus(type) {
+                const el = document.getElementById('status');
+                el.className = 'status ' + type;
+                
+                if (type === 'saved') {
+                    el.textContent = '✓ הכל שמור';
+                } else if (type === 'loading') {
+                    el.textContent = '⏳ שומר...';
+                } else {
+                    el.textContent = '⚠ שגיאה';
+                }
+            },
+            
+            addCurrent() {
+                const input = document.getElementById('ci');
+                const qty = parseInt(document.getElementById('cq').value) || 1;
+                const text = input.value.trim();
+                
+                if (!text) return;
+                
+                text.split(/[\n,]+/).forEach(item => {
+                    item = item.trim();
+                    if (item) {
+                        // Parse quantity from text like "גרביים 5"
+                        const match = item.match(/^(.+?)\s+(\d+)\s*$/);
+                        if (match) {
+                            this.data.current[match[1].trim()] = parseInt(match[2]);
+                        } else {
+                            this.data.current[item] = qty;
+                        }
+                    }
+                });
+                
+                input.value = '';
+                this.save();
+                this.render();
+                input.focus();
+            },
+            
+            addRequired() {
+                const input = document.getElementById('ri');
+                const qty = parseInt(document.getElementById('rq').value) || 1;
+                const text = input.value.trim();
+                
+                if (!text) return;
+                
+                text.split(/[\n,]+/).forEach(item => {
+                    item = item.trim();
+                    if (item) {
+                        const match = item.match(/^(.+?)\s+(\d+)\s*$/);
+                        if (match) {
+                            this.data.required[match[1].trim()] = parseInt(match[2]);
+                        } else {
+                            this.data.required[item] = qty;
+                        }
+                    }
+                });
+                
+                input.value = '';
+                this.save();
+                this.render();
+                input.focus();
+            },
+            
+            inc(type, item) {
+                this.data[type][item] = (this.data[type][item] || 0) + 1;
+                this.save();
+                this.render();
+            },
+            
+            dec(type, item) {
+                if (this.data[type][item] > 1) {
+                    this.data[type][item]--;
+                    this.save();
+                    this.render();
+                } else {
+                    this.del(type, item);
+                }
+            },
+            
+            del(type, item) {
+                if (confirm(`למחוק "${item}"?`)) {
+                    delete this.data[type][item];
+                    this.save();
+                    this.render();
+                }
+            },
+            
+            copy(from, to, item) {
+                this.data[to][item] = this.data[from][item];
+                this.save();
+                this.render();
+            },
+            
+            render() {
+                this.renderCurrent();
+                this.renderRequired();
+                this.renderToBring();
+            },
+            
+            renderCurrent() {
+                const list = document.getElementById('cl');
+                const items = Object.entries(this.data.current);
+                
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="empty-state">עדיין לא הוספת פריטים</div>';
+                    return;
+                }
+                
+                list.innerHTML = items.map(([name, qty]) => `
+                    <div class="item">
+                        <div class="item-name">
+                            <span>${name}</span>
+                            <span class="quantity-badge">${qty}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="minus" onclick="app.dec('current','${this.escape(name)}')">-</button>
+                            <button class="plus" onclick="app.inc('current','${this.escape(name)}')">+</button>
+                            <button class="copy-to" onclick="app.copy('current','required','${this.escape(name)}')">→ צריך</button>
+                            <button class="delete" onclick="app.del('current','${this.escape(name)}')">מחק</button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+            
+            renderRequired() {
+                const list = document.getElementById('rl');
+                const items = Object.entries(this.data.required);
+                
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="empty-state">עדיין לא הוספת פריטים</div>';
+                    return;
+                }
+                
+                list.innerHTML = items.map(([name, qty]) => `
+                    <div class="item">
+                        <div class="item-name">
+                            <span>${name}</span>
+                            <span class="quantity-badge">${qty}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="minus" onclick="app.dec('required','${this.escape(name)}')">-</button>
+                            <button class="plus" onclick="app.inc('required','${this.escape(name)}')">+</button>
+                            <button class="copy-to" onclick="app.copy('required','current','${this.escape(name)}')">→ יש לי</button>
+                            <button class="delete" onclick="app.del('required','${this.escape(name)}')">מחק</button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+            
+            renderToBring() {
+                const list = document.getElementById('tl');
+                const toBring = {};
+                
+                for (const [item, reqQty] of Object.entries(this.data.required)) {
+                    const curQty = this.data.current[item] || 0;
+                    const needed = reqQty - curQty;
+                    if (needed > 0) toBring[item] = needed;
+                }
+                
+                const items = Object.entries(toBring);
+                
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="empty-state">🎉 יש לך את כל מה שאתה צריך!</div>';
+                } else {
+                    list.innerHTML = items.map(([name, qty]) => `
+                        <div class="item">
+                            <div class="item-name">
+                                <span>📌 ${name}</span>
+                                <span class="quantity-badge quantity-needed">${qty}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+                // Update stats
+                const totalToBring = Object.values(toBring).reduce((s,q) => s+q, 0);
+                const totalCurrent = Object.values(this.data.current).reduce((s,q) => s+q, 0);
+                const totalRequired = Object.values(this.data.required).reduce((s,q) => s+q, 0);
+                
+                document.getElementById('tc').textContent = totalToBring;
+                document.getElementById('cc').textContent = totalCurrent;
+                document.getElementById('rc').textContent = totalRequired;
+            },
+            
+            escape(str) {
+                return str.replace(/'/g, "\\'");
+            }
+        };
+        
+        // Initialize app when page loads
+        window.addEventListener('DOMContentLoaded', () => app.init());
+        
+        // Save before closing
+        window.addEventListener('beforeunload', () => app.save());
+    </script>
+</body>
+</html>
