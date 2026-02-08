@@ -43,10 +43,45 @@
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        .card h2 {
-            color: #667eea;
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 15px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .card-header h2 {
+            color: #667eea;
             font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: transform 0.3s;
+            color: #667eea;
+        }
+        .toggle-btn:hover {
+            transform: scale(1.1);
+        }
+        .toggle-btn.collapsed {
+            transform: rotate(-90deg);
+        }
+        .card-content {
+            max-height: none;
+            overflow: visible;
+            transition: opacity 0.3s ease-out;
+            opacity: 1;
+        }
+        .card-content.collapsed {
+            display: none;
+            opacity: 0;
         }
         .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
         textarea {
@@ -164,6 +199,11 @@
             font-size: 0.9rem; 
             margin-top: 4px;
         }
+        .section-summary {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
         @media (max-width: 768px) {
             .grid { grid-template-columns: 1fr; }
             h1 { font-size: 1.4rem; }
@@ -186,23 +226,33 @@
 
         <div class="grid">
             <div class="card">
-                <h2>📦 מה יש לי בישיבה</h2>
-                <div class="input-group">
-                    <textarea id="ci" placeholder="שם הפריט..." rows="1"></textarea>
-                    <input type="number" id="cq" min="1" value="1">
-                    <button onclick="app.addCurrent()">הוסף</button>
+                <div class="card-header" onclick="app.toggleSection('current')">
+                    <h2>📦 מה יש לי בישיבה</h2>
+                    <button class="toggle-btn" id="toggleCurrent">▼</button>
                 </div>
-                <div id="cl"></div>
+                <div class="card-content" id="currentContent">
+                    <div class="input-group">
+                        <textarea id="ci" placeholder="שם הפריט..." rows="1"></textarea>
+                        <input type="number" id="cq" min="1" value="1">
+                        <button onclick="app.addCurrent()">הוסף</button>
+                    </div>
+                    <div id="cl"></div>
+                </div>
             </div>
 
             <div class="card">
-                <h2>⭐ מה צריך להיות</h2>
-                <div class="input-group">
-                    <textarea id="ri" placeholder="שם הפריט..." rows="1"></textarea>
-                    <input type="number" id="rq" min="1" value="1">
-                    <button onclick="app.addRequired()">הוסף</button>
+                <div class="card-header" onclick="app.toggleSection('required')">
+                    <h2>⭐ מה צריך להיות</h2>
+                    <button class="toggle-btn" id="toggleRequired">▼</button>
                 </div>
-                <div id="rl"></div>
+                <div class="card-content" id="requiredContent">
+                    <div class="input-group">
+                        <textarea id="ri" placeholder="שם הפריט..." rows="1"></textarea>
+                        <input type="number" id="rq" min="1" value="1">
+                        <button onclick="app.addRequired()">הוסף</button>
+                    </div>
+                    <div id="rl"></div>
+                </div>
             </div>
         </div>
 
@@ -229,10 +279,13 @@
     <script>
         const app = {
             data: { current: {}, required: {} },
+            collapsed: { current: false, required: false },
             
             init() {
                 this.load();
+                this.loadCollapsedState();
                 this.render();
+                this.updateToggleButtons();
                 
                 // Auto-save every 3 seconds if there are changes
                 setInterval(() => this.save(), 3000);
@@ -244,7 +297,6 @@
                     const saved = localStorage.getItem(key);
                     const current = JSON.stringify(this.data);
                     
-                    // Only save if data changed
                     if (saved !== current) {
                         localStorage.setItem(key, current);
                         this.showStatus('saved');
@@ -267,6 +319,58 @@
                     }
                 } catch(e) {
                     console.error('Load error:', e);
+                }
+            },
+            
+            loadCollapsedState() {
+                try {
+                    const state = localStorage.getItem('itemTracker_collapsed');
+                    if (state) {
+                        this.collapsed = JSON.parse(state);
+                    }
+                } catch(e) {
+                    console.error('Load collapsed state error:', e);
+                }
+            },
+            
+            saveCollapsedState() {
+                try {
+                    localStorage.setItem('itemTracker_collapsed', JSON.stringify(this.collapsed));
+                } catch(e) {
+                    console.error('Save collapsed state error:', e);
+                }
+            },
+            
+            toggleSection(section) {
+                this.collapsed[section] = !this.collapsed[section];
+                this.saveCollapsedState();
+                this.updateToggleButtons();
+            },
+            
+            updateToggleButtons() {
+                const currentContent = document.getElementById('currentContent');
+                const requiredContent = document.getElementById('requiredContent');
+                const toggleCurrent = document.getElementById('toggleCurrent');
+                const toggleRequired = document.getElementById('toggleRequired');
+                
+                if (this.collapsed.current) {
+                    currentContent.classList.add('collapsed');
+                    toggleCurrent.classList.add('collapsed');
+                    toggleCurrent.textContent = '◀';
+                } else {
+                    currentContent.classList.remove('collapsed');
+                    toggleCurrent.classList.remove('collapsed');
+                    toggleCurrent.textContent = '▼';
+                }
+                
+                if (this.collapsed.required) {
+                    requiredContent.classList.add('collapsed');
+                    toggleRequired.classList.add('collapsed');
+                    toggleRequired.textContent = '◀';
+                } else {
+                    requiredContent.classList.remove('collapsed');
+                    toggleRequired.classList.remove('collapsed');
+                    toggleRequired.textContent = '▼';
                 }
             },
             
@@ -293,7 +397,6 @@
                 text.split(/[\n,]+/).forEach(item => {
                     item = item.trim();
                     if (item) {
-                        // Parse quantity from text like "גרביים 5"
                         const match = item.match(/^(.+?)\s+(\d+)\s*$/);
                         if (match) {
                             this.data.current[match[1].trim()] = parseInt(match[2]);
